@@ -3,32 +3,51 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 
 const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  const { deployments, getNamedAccounts } = hre;
+  const { deployments, getNamedAccounts, network } = hre;
   const { deploy } = deployments;
-
   const { deployer } = await getNamedAccounts();
 
-  // Replace with the actual KRNL address and Kernel ID on Arbitrum Sepolia
-  const krnlAddress = "0x0E709e842A7126FFf74F22041Ff10A38e8348e76";
-  const kernelId = 341;
-  const tokenAuthority = "0x0000000000000000000000000000000000000000";
+  console.log(`Deploying to network: ${network.name}`);
 
-  const deployResult = await deploy("DexPriceComparator", {
-    from: deployer,
-    args: [krnlAddress, kernelId, tokenAuthority],
-    log: true,
-    waitConfirmations: 1,
-  });
+  let tokenAuthorityAddress: string;
 
-  // Get the deployed contract
-  const dexPriceComparator = await ethers.getContractAt("DexPriceComparator", deployResult.address);
+  // Deploy TokenAuthority to Sapphire Oasis
+  if (network.name === "sapphire-testnet") {
+    console.log("Deploying TokenAuthority to Sapphire Oasis...");
+    const tokenAuthorityDeployResult = await deploy("TokenAuthority", {
+      from: deployer,
+      args: [deployer], // initialOwner
+      log: true,
+      waitConfirmations: 1,
+    });
+    tokenAuthorityAddress = tokenAuthorityDeployResult.address;
+    console.log(`TokenAuthority deployed to: ${tokenAuthorityAddress}`);
+  } else {
+    // If not on Sapphire, use a mock address or skip deployment
+    tokenAuthorityAddress = "0x0000000000000000000000000000000000000000"; // Or skip deployment entirely
+    console.log("Skipping TokenAuthority deployment (not on Sapphire)");
+  }
 
-  // Set KRNL Address, ID and Token Authority if needed.
-  await dexPriceComparator.setKRNLAddress(krnlAddress);
-  await dexPriceComparator.setKernelId(kernelId);
-  await dexPriceComparator.setTokenAuthority(tokenAuthority);
+  // Deploy DexPriceComparator to Sepolia
+  if (network.name === "sepolia") {
+    console.log("Deploying DexPriceComparator to Sepolia...");
+
+    const dexPriceComparatorDeployResult = await deploy("DexPriceComparator", {
+      from: deployer,
+      log: true,
+      waitConfirmations: 1,
+    });
+
+    console.log(`DexPriceComparator deployed to: ${dexPriceComparatorDeployResult.address}`);
+
+    // Get the deployed contract
+    const dexPriceComparator = await ethers.getContractAt("DexPriceComparator", dexPriceComparatorDeployResult.address);
+
+  } else {
+    console.log("Skipping DexPriceComparator deployment (not on Sepolia)");
+  }
 };
 
-deploy.tags = ["DexPriceComparator"];
+deploy.tags = ["DexPriceComparator", "TokenAuthority"];
 
 export default deploy;
