@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "@oasisprotocol/sapphire-contracts": "^0.2.12",
     "hardhat-deploy": "^0.14.0"
   }
 }
