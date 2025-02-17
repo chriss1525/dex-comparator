@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { ethers } from "krnl-sdk";
 import { AbiCoder } from "krnl-sdk";
+import ContractABI from "../abis/dexPriceComparor.json";
 
 function Home() {
   const [price, setPrice] = useState<number | null>(null);
@@ -16,8 +17,10 @@ function Home() {
 
       const entryId = process.env.NEXT_PUBLIC_ENTRY_ID;
       const accessToken = process.env.NEXT_PUBLIC_KRNL_ACCESS_TOKEN;
-      const infuraApiKey = process.env.NEXT_PUBLIC_INFURA_API_KEY;
+      const RPC_URL = "https://v0-0-1-rpc.node.lat/";
       const walletAddress = process.env.NEXT_PUBLIC_WALLET_ADDRESS;
+      const BTCAddress= "0x81BbF1F929d743CB188FBD268480168680782b3b";
+      const smartContractAddress = "0x0BF8100A95472583955285804761cCE56c7426Ce";
 
       try {
         if (!entryId) {
@@ -28,27 +31,22 @@ function Home() {
           throw new Error("Access token is not defined");
         }
 
-        if (!infuraApiKey) {
-          throw new Error("Infura API key is not defined");
-        }
-
         if (!walletAddress) {
           throw new Error("Wallet address is not defined");
         }
 
-        const provider = new ethers.JsonRpcProvider(
-          `https://sepolia.infura.io/v3/${infuraApiKey}`
-        );
+        const provider = new ethers.JsonRpcProvider(RPC_URL);
+        const signer = new ethers.JsonRpcSigner(provider, walletAddress);
 
         // const data = await provider.getKernelsCost(entryId);
+        console.log("signer", signer.address)
 
         const abiEncodedString = AbiCoder.defaultAbiCoder().encode(
           ["string"],
           ["BTC/USD"]
         );
 
-
-        const data = await provider.executeKernels(
+        const executionResult = await provider.executeKernels(
           entryId,
           accessToken,
           {
@@ -62,8 +60,45 @@ function Home() {
           abiEncodedString
         );
 
-        if (data) {
-          return { data };
+        console.log("executing kernel method ...");
+
+        const contract = new ethers.Contract(
+            smartContractAddress,
+            ContractABI,
+            signer
+        );
+
+        console.log("contract", contract);
+
+        const krnlPayload = {
+            auth: executionResult.auth,
+            kernelResponses: executionResult.kernel_responses,
+            kernelParams: executionResult.kernel_params
+        }
+
+        console.log("krnlPayload", krnlPayload);
+
+        const tx = await contract.requestPrice(
+            krnlPayload,
+            BTCAddress,
+            'USD'
+        )
+
+        console.log("getting price ...")
+        console.log("encodedPrice", tx);
+
+
+        console.log("getting receipt ...")
+
+        
+
+        if (tx.data) {
+            const decodedPrice = AbiCoder.defaultAbiCoder().decode(
+                ["uint256"],
+                tx,
+            );
+            console.log("decodedPrice", decodedPrice);
+            setPrice(decodedPrice[0]);
         } else {
           throw new Error("No data received from getKernelsCost");
         }
@@ -77,17 +112,16 @@ function Home() {
     };
 
     setLoading(true);
-    fetchPrice().then((result) => {
-      if (result.data) {
-        setPrice(+result.data.kernel_responses);
-      } else {
-        setError(result.error);
-      }
-      setLoading(false);
-      console.log("Price fetched:", result.data);
-      console.log("Error:", result.error);
-    });
-  }, []);
+    fetchPrice()
+      .then((result) => {
+        if (result?.error) setError(result.error);
+        setLoading(false);
+      })
+      .catch((error) => {
+        setError(error.message);
+        setLoading(false);
+      });
+}, []);
 
   return (
     <div>
