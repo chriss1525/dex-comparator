@@ -1,5 +1,15 @@
 [
-  { "inputs": [], "stateMutability": "nonpayable", "type": "constructor" },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_tokenAuthorityPublicKey",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
   { "inputs": [], "name": "ECDSAInvalidSignature", "type": "error" },
   {
     "inputs": [
@@ -48,94 +58,6 @@
     "type": "event"
   },
   {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "tokenAddress",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "fiatDenomination",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "price",
-        "type": "uint256"
-      }
-    ],
-    "name": "eventPriceUpdated",
-    "type": "event"
-  },
-  {
-    "inputs": [],
-    "name": "KERNEL_ID",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "KRNL_ADDRESS",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "MOCK_ORACLE_ADDRESS",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "TOKEN_AUTHORITY_PUBLIC_KEY",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      { "internalType": "address", "name": "_tokenAddress", "type": "address" },
-      {
-        "internalType": "string",
-        "name": "_fiatDenomination",
-        "type": "string"
-      }
-    ],
-    "name": "addTokenPair",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
-    "name": "allowedUsers",
-    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      { "internalType": "address", "name": "_tokenAddress", "type": "address" },
-      {
-        "internalType": "string",
-        "name": "_fiatDenomination",
-        "type": "string"
-      }
-    ],
-    "name": "comparePrices",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [{ "internalType": "bytes", "name": "", "type": "bytes" }],
     "name": "executed",
     "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
@@ -143,68 +65,34 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "getLatestTokenPairs",
-    "outputs": [
+    "inputs": [
       {
         "components": [
+          { "internalType": "bytes", "name": "auth", "type": "bytes" },
           {
-            "internalType": "address",
-            "name": "tokenAddress",
-            "type": "address"
+            "internalType": "bytes",
+            "name": "kernelResponses",
+            "type": "bytes"
           },
-          {
-            "internalType": "string",
-            "name": "fiatDenomination",
-            "type": "string"
-          }
+          { "internalType": "bytes", "name": "kernelParams", "type": "bytes" }
         ],
-        "internalType": "struct DexPriceComparator.TokenPair[]",
-        "name": "",
-        "type": "tuple[]"
-      }
+        "internalType": "struct KrnlPayload",
+        "name": "krnlPayload",
+        "type": "tuple"
+      },
+      { "internalType": "enum Token", "name": "token", "type": "uint8" }
     ],
-    "stateMutability": "view",
+    "name": "getExchangeRate",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "inputs": [
-      { "internalType": "address", "name": "_tokenAddress", "type": "address" },
-      {
-        "internalType": "string",
-        "name": "_fiatDenomination",
-        "type": "string"
-      }
+      { "internalType": "enum Token", "name": "token", "type": "uint8" }
     ],
-    "name": "getPrice",
-    "outputs": [
-      { "internalType": "uint256", "name": "", "type": "uint256" },
-      { "internalType": "uint256", "name": "", "type": "uint256" },
-      { "internalType": "bool", "name": "", "type": "bool" }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      { "internalType": "address", "name": "_tokenAddress", "type": "address" },
-      {
-        "internalType": "string",
-        "name": "_fiatDenomination",
-        "type": "string"
-      }
-    ],
-    "name": "isValidPrice",
-    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "mockOracle",
-    "outputs": [
-      { "internalType": "contract IMockOracle", "name": "", "type": "address" }
-    ],
+    "name": "getSavedRate",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
     "stateMutability": "view",
     "type": "function"
   },
@@ -216,69 +104,18 @@
     "type": "function"
   },
   {
-    "inputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
-    "name": "priceData",
+    "inputs": [{ "internalType": "string", "name": "", "type": "string" }],
+    "name": "rates",
     "outputs": [
-      { "internalType": "uint256", "name": "price", "type": "uint256" },
-      { "internalType": "uint256", "name": "timestamp", "type": "uint256" },
-      { "internalType": "bool", "name": "isValid", "type": "bool" }
+      { "internalType": "uint256", "name": "rate", "type": "uint256" },
+      { "internalType": "uint256", "name": "timestamp", "type": "uint256" }
     ],
     "stateMutability": "view",
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "components": [
-          { "internalType": "bytes", "name": "auth", "type": "bytes" },
-          {
-            "internalType": "bytes",
-            "name": "kernelResponses",
-            "type": "bytes"
-          },
-          { "internalType": "bytes", "name": "kernelParams", "type": "bytes" }
-        ],
-        "internalType": "struct KrnlPayload",
-        "name": "krnlPayload",
-        "type": "tuple"
-      }
-    ],
-    "name": "registerDAppUser",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "inputs": [],
     "name": "renounceOwnership",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "components": [
-          { "internalType": "bytes", "name": "auth", "type": "bytes" },
-          {
-            "internalType": "bytes",
-            "name": "kernelResponses",
-            "type": "bytes"
-          },
-          { "internalType": "bytes", "name": "kernelParams", "type": "bytes" }
-        ],
-        "internalType": "struct KrnlPayload",
-        "name": "krnlPayload",
-        "type": "tuple"
-      },
-      { "internalType": "address", "name": "_tokenAddress", "type": "address" },
-      {
-        "internalType": "string",
-        "name": "_fiatDenomination",
-        "type": "string"
-      }
-    ],
-    "name": "requestPrice",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -304,20 +141,33 @@
     "type": "function"
   },
   {
-    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
-    "name": "tokenPairs",
-    "outputs": [
-      { "internalType": "address", "name": "tokenAddress", "type": "address" },
-      { "internalType": "string", "name": "fiatDenomination", "type": "string" }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [
       { "internalType": "address", "name": "newOwner", "type": "address" }
     ],
     "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          { "internalType": "bytes", "name": "auth", "type": "bytes" },
+          {
+            "internalType": "bytes",
+            "name": "kernelResponses",
+            "type": "bytes"
+          },
+          { "internalType": "bytes", "name": "kernelParams", "type": "bytes" }
+        ],
+        "internalType": "struct KrnlPayload",
+        "name": "krnlPayload",
+        "type": "tuple"
+      },
+      { "internalType": "enum Token", "name": "token", "type": "uint8" }
+    ],
+    "name": "updateSavedRate",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

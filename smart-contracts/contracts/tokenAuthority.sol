@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -34,26 +34,31 @@ contract TokenAuthority is Ownable {
         signingKeypair = _generateKey();
         accessKeypair = _generateKey();
 
-        kernels[341] = true;
+         kernels[341] = true;
+
+        whitelist[address(0xc770EAc29244C1F88E14a61a6B99d184bfAe93f5)] = true;
+        runtimeDigests[
+            0x876924e18dd46dd3cbcad570a87137bbd828a7d0f3cad309f78ad2c9402eeeb7
+        ] = true;
     }
 
-    modifier onlyAuthorized(bytes calldata auth, address userAddress) {
-    (
-        bytes32 entryId,
-        bytes memory accessToken,
-        bytes32 runtimeDigest,
-        bytes memory runtimeDigestSignature,
-        uint256 nonce,
-        uint256 blockTimeStamp,
-        bytes memory authSignature
-    ) = abi.decode(
-            auth,
-            (bytes32, bytes, bytes32, bytes, uint256, uint256, bytes)
-        );
-    require(_verifyAccessToken(entryId, accessToken));
-    require(_verifyRuntimeDigest(runtimeDigest, runtimeDigestSignature, userAddress));
-    _;
-}    modifier onlyValidated(bytes calldata executionPlan) {
+    modifier onlyAuthorized(bytes calldata auth) {
+        (
+            bytes32 entryId,
+            bytes memory accessToken,
+            bytes32 runtimeDigest,
+            bytes memory runtimeDigestSignature,
+            uint256 nonce,
+            uint256 blockTimeStamp,
+            bytes memory authSignature
+        ) = abi.decode(
+                auth,
+                (bytes32, bytes, bytes32, bytes, uint256, uint256, bytes)
+            );
+        require(_verifyAccessToken(entryId, accessToken));
+        _;
+    }
+    modifier onlyValidated(bytes calldata executionPlan) {
         require(_verifyExecutionPlan(executionPlan));
         _;
     }
@@ -72,17 +77,16 @@ contract TokenAuthority is Ownable {
         );
 
         for (uint256 i = 0; i < _executions.length; i++) {
-            if (_executions[i].kernelId == 341) {
-                uint256 result = abi.decode(_executions[i].result, (uint256));
-                if (result > 0) {
-                    _executions[i].isValidated = true;
-                    _executions[i].opinion = true;
-                } else {
-                    _executions[i].isValidated = false;
-                    _executions[i].opinion = false;
-                }
-            }
 
+          // validate kernel response
+             if (_executions[i].kernelId == 341) {
+                 uint256 result = abi.decode(_executions[i].result, (uint256));
+                 if (result > 0) {
+                     _executions[i].opinion = true;
+                     _executions[i].opinionDetails = "All good";
+                     _executions[i].isValidated = true;
+                 }
+             }
         }
         
         return abi.encode(_executions);
@@ -115,20 +119,14 @@ contract TokenAuthority is Ownable {
 
     function _verifyRuntimeDigest(
         bytes32 runtimeDigest,
-        bytes memory runtimeDigestSignature,
-        address userAddress
+        bytes memory runtimeDigestSignature
     ) private view returns (bool) {
-        // 1. Recover the public key from the signature
-        // address recoverPubKeyAddr = ECDSA.recover(
-        //     runtimeDigest,
-        //     runtimeDigestSignature
-        // );
-
-        // check if the recovered address is a valid address
-        // return (recoverPubKeyAddr != address(0)); // return true if the address is valid
-        //  Alsways return tru, bypass runtime digest
-        return true;
-        }
+        address recoverPubKeyAddr = ECDSA.recover(
+            runtimeDigest,
+            runtimeDigestSignature
+        );
+        return whitelist[recoverPubKeyAddr];
+    }
 
     function _verifyExecutionPlan(
         bytes calldata executionPlan
@@ -229,7 +227,7 @@ contract TokenAuthority is Ownable {
     function isKernelAllowed(
         bytes calldata auth,
         uint256 kernelId
-    ) external view onlyAuthorized(auth, msg.sender) returns (bool) {
+    ) external view onlyAuthorized(auth) returns (bool) {
         return kernels[kernelId];
     }
 
@@ -237,7 +235,7 @@ contract TokenAuthority is Ownable {
     function getOpinion(
         bytes calldata auth,
         bytes calldata executionPlan
-    ) external view onlyAuthorized(auth, msg.sender) returns (bytes memory) {
+    ) external view onlyAuthorized(auth) returns (bytes memory) {
         try this._validateExecution(executionPlan) returns (
             bytes memory result
         ) {
@@ -258,7 +256,7 @@ contract TokenAuthority is Ownable {
         external
         view
         onlyValidated(executionPlan)
-        onlyAuthorized(auth, msg.sender)
+        onlyAuthorized(auth)
         returns (bytes memory, bytes32, bytes memory, bool)
     {
         (

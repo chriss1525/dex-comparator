@@ -1,10 +1,15 @@
-// src/pages/index.tsx
+"use client";
+
 import React, { useState, useEffect } from "react";
 import { ethers } from "krnl-sdk";
 import { AbiCoder } from "krnl-sdk";
 import ContractABI from "../abis/dexPriceComparor.json";
 
-function Home() {
+const TokenMapping = {
+  ETH: 0,
+  BTC: 1,
+};
+export default function Home() {
   const [price, setPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,8 +24,7 @@ function Home() {
       const accessToken = process.env.NEXT_PUBLIC_KRNL_ACCESS_TOKEN;
       const RPC_URL = "https://v0-0-1-rpc.node.lat/";
       const walletAddress = process.env.NEXT_PUBLIC_WALLET_ADDRESS;
-      const BTCAddress= "0x81BbF1F929d743CB188FBD268480168680782b3b";
-      const smartContractAddress = "0x0BF8100A95472583955285804761cCE56c7426Ce";
+      const smartContractAddress = "0xdD870eB3378cfae3E7beE375279aB22cf5712401";
 
       try {
         if (!entryId) {
@@ -39,11 +43,11 @@ function Home() {
         const signer = new ethers.JsonRpcSigner(provider, walletAddress);
 
         // const data = await provider.getKernelsCost(entryId);
-        console.log("signer", signer.address)
+        console.log("signer", signer.address);
 
         const abiEncodedString = AbiCoder.defaultAbiCoder().encode(
           ["string"],
-          ["BTC/USD"]
+          ["BTC/USD"],
         );
 
         const executionResult = await provider.executeKernels(
@@ -57,49 +61,63 @@ function Home() {
               },
             },
           },
-          abiEncodedString
+          abiEncodedString,
         );
 
         console.log("executing kernel method ...");
 
         const contract = new ethers.Contract(
-            smartContractAddress,
-            ContractABI,
-            signer
+          smartContractAddress,
+          ContractABI,
+          signer,
         );
 
         console.log("contract", contract);
+        console.log("kernelPrams are", executionResult.kernel_params);
+        console.log("kernel resonse is", executionResult.kernel_responses);
 
         const krnlPayload = {
-            auth: executionResult.auth,
-            kernelResponses: executionResult.kernel_responses,
-            kernelParams: executionResult.kernel_params
-        }
+          auth: executionResult.auth,
+          kernelResponses: executionResult.kernel_responses,
+          kernelParams: executionResult.kernel_params,
+        };
 
         console.log("krnlPayload", krnlPayload);
+        console.log("signature token is", krnlPayload.auth);
 
-        const tx = await contract.requestPrice(
-            krnlPayload,
-            BTCAddress,
-            'USD'
-        )
+        let tx: any;
 
-        console.log("getting price ...")
+        try {
+          const updateSavedRate = contract.getFunction("updateSavedRate");
+
+          console.log(await contract.getAddress());
+
+          if (updateSavedRate) {
+            tx = await updateSavedRate(
+              [
+                krnlPayload.auth,
+                krnlPayload.kernelResponses,
+                krnlPayload.kernelParams,
+              ],
+              TokenMapping.BTC,
+            );
+          }
+          await tx.wait();
+        } catch (e) {
+          console.error(e);
+        }
+        console.log("getting price ...");
         console.log("encodedPrice", tx);
 
-
-        console.log("getting receipt ...")
-
-        
-
-        if (tx.data) {
-            const decodedPrice = AbiCoder.defaultAbiCoder().decode(
-                ["uint256"],
-                tx,
-            );
-            console.log("decodedPrice", decodedPrice);
-            setPrice(decodedPrice[0]);
+        if (tx) {
+          const decodedPrice = AbiCoder.defaultAbiCoder().decode(
+            ["uint256"],
+            tx,
+          );
+          console.log("decodedPrice", decodedPrice);
+          setPrice(decodedPrice[0]);
         } else {
+          console.log(error);
           throw new Error("No data received from getKernelsCost");
         }
       } catch (error) {
@@ -121,7 +139,7 @@ function Home() {
         setError(error.message);
         setLoading(false);
       });
-}, []);
+  }, []);
 
   return (
     <div>
@@ -139,5 +157,3 @@ function Home() {
     </div>
   );
 }
-
-export default Home;

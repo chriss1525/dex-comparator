@@ -1,89 +1,73 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import "./ikernel341.sol";
 import {KRNL, KrnlPayload, KernelParameter, KernelResponse} from "./KRNL.sol";
 
-interface IMockOracle {
-    function getRandomExchangeRate(string memory input) external view returns (uint256);
+
+enum Token { ETH, BTC }
+
+contract priceComparer is KRNL {
+
+ constructor(address _tokenAuthorityPublicKey) KRNL(_tokenAuthorityPublicKey) {}
+
+struct RateData {
+  uint256 rate;
+  uint256 timestamp;
 }
 
-contract DexPriceComparator is KRNL {
+mapping(string => RateData) public rates;
 
-    struct TokenPair {
-        address tokenAddress;
-        string fiatDenomination;
+function getExchangeRate(
+  KrnlPayload memory krnlPayload,
+  Token token
+) 
+
+  public
+  onlyAuthorized(krnlPayload, abi.encode(token))
+  returns (uint256)
+  {
+    string memory pair;
+    if (token == Token.ETH) pair = "ETH/USD";
+    else if (token == Token.BTC) pair = "BTC/USD";
+
+    // ensure input is "ETH/USD" or "BTC/USD"
+    require (
+       keccak256(abi.encodePacked(pair)) == keccak256(abi.encodePacked("ETH/USD")) ||
+        keccak256(abi.encodePacked(pair)) == keccak256(abi.encodePacked("BTC/USD")),
+        "Invalid input"
+    );
+
+    // decode kernel responses
+    KernelResponse[] memory kernelResponses = abi.decode(krnlPayload.kernelResponses, (KernelResponse[]));
+
+    uint256 rate;
+      for (uint256 i; i < kernelResponses.length; i++) {
+      if (kernelResponses[i].kernelId == 341) {
+        rate = abi.decode(kernelResponses[i].result, (uint256));
+        break;
+      }
     }
 
-    struct PriceData {
-        uint256 price;
-        uint256 timestamp;
-        bool isValid;
-    }
+    return rate;
+  }
 
-    mapping(bytes32 => PriceData) public priceData;
-    mapping(address => bool) public allowedUsers;
+  function updateSavedRate(
+    KrnlPayload memory krnlPayload, 
+    Token token
+  ) external {
+    uint256 rate = getExchangeRate(krnlPayload, token);
+    rates[tokenToString(token)] = RateData(rate, block.timestamp);
+  }
 
-    TokenPair[] public tokenPairs;
+  function getSavedRate(
+    Token token
+  ) external view returns (uint256) {
+    return rates[tokenToString(token)].rate;
+  }
 
-    // KRNL Integration
-    address public constant KRNL_ADDRESS = 0x0E709e842A7126FFf74F22041Ff10A38e8348e76; // Hardcoded KRNL address
-    uint256 public constant KERNEL_ID = 341; // Hardcoded Kernel ID
-    address public constant TOKEN_AUTHORITY_PUBLIC_KEY = 0x0284F0F571de0b4cd50fBE62A55e04Afb3d61601; // Hardcoded Token Authority Public Key
-    address public constant MOCK_ORACLE_ADDRESS = 0x0E709e842A7126FFf74F22041Ff10A38e8348e76; // Hardcoded Mock Oracle Address
-    IMockOracle public mockOracle = IMockOracle(MOCK_ORACLE_ADDRESS);
-
-    // Event for price updates
-    event eventPriceUpdated(address tokenAddress, string fiatDenomination, uint256 price);
-
-    constructor() KRNL(TOKEN_AUTHORITY_PUBLIC_KEY) {
-        // mockOracle = IMockOracle(MOCK_ORACLE_ADDRESS);  // No longer needed in constructor
-    }
-
-    function addTokenPair(address _tokenAddress, string memory _fiatDenomination) public {
-        tokenPairs.push(TokenPair(_tokenAddress, _fiatDenomination));
-    }
-
-    function requestPrice(
-        KrnlPayload memory krnlPayload,
-        address _tokenAddress,
-        string memory _fiatDenomination
-    )
-        external
-        onlyAuthorized(krnlPayload, abi.encode(_tokenAddress, _fiatDenomination))
-    {
-        bytes32 queryId = keccak256(abi.encodePacked(_tokenAddress, _fiatDenomination));
-        bytes memory input = abi.encodePacked(string.concat(string(abi.encodePacked(_tokenAddress)), "/", _fiatDenomination));
-        uint256 price = mockOracle.getRandomExchangeRate(string.concat(string(abi.encodePacked(_tokenAddress)), "/", _fiatDenomination));
-        priceData[queryId] = PriceData(price, block.timestamp, true);
-        emit eventPriceUpdated(_tokenAddress, _fiatDenomination, price);
-    }
-
-    function getPrice(address _tokenAddress, string memory _fiatDenomination) public view returns (uint256, uint256, bool) {
-        bytes32 queryId = keccak256(abi.encodePacked(_tokenAddress, _fiatDenomination));
-        return (priceData[queryId].price, priceData[queryId].timestamp, priceData[queryId].isValid);
-    }
-
-    function comparePrices(address _tokenAddress, string memory _fiatDenomination) public view returns (uint256) {
-        bytes32 queryId = keccak256(abi.encodePacked(_tokenAddress, _fiatDenomination));
-        return priceData[queryId].price;
-    }
-
-    function isValidPrice(address _tokenAddress, string memory _fiatDenomination) public view returns (bool) {
-         bytes32 queryId = keccak256(abi.encodePacked(_tokenAddress, _fiatDenomination));
-        return priceData[queryId].isValid;
-    }
-
-    function getLatestTokenPairs() public view returns (TokenPair[] memory) {
-        return tokenPairs;
-    }
-
-    function registerDAppUser(KrnlPayload memory krnlPayload) external onlyAuthorized(krnlPayload, abi.encode(msg.sender)) {
-        allowedUsers[msg.sender] = true;
-    }
-
-    modifier onlyAllowedUser() {
-        require(allowedUsers[msg.sender], "User not registered");
-        _;
-    }
+  function tokenToString(Token token) internal pure returns (string memory) {
+    if (token == Token.ETH) return "ETH/USD";
+    if (token == Token.BTC) return "BTC/USD";
+    revert("Invalid token");
+  }
 }
