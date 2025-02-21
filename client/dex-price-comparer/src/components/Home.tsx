@@ -1,30 +1,43 @@
 "use client";
 
+import React, { useCallback, useState, useEffect } from "react";
+import { ethers } from "krnl-sdk";
+import { AbiCoder } from "krnl-sdk";
+import ContractABI from "../abis/dexPriceComparor.json";
+
 declare global {
   interface Window {
     ethereum: any;
   }
 }
-
-import React, { useState, useEffect } from "react";
-import { ethers } from "krnl-sdk";
-import { AbiCoder } from "krnl-sdk";
-import ContractABI from "../abis/dexPriceComparor.json";
-
 const TokenMapping = {
   ETH: 0,
   BTC: 1,
 };
+
 export default function Home() {
-  const [price, setPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
+
   const [hasMetamask, setHasMetamask] = useState(false);
-  const [signer, setSigner] = useState(undefined);
+  const [isConnected, setIsConnected] = useState(false);
+
+  const [price, setPrice] = useState<number | null>(null);
   const [account, setAccount] = useState<string | null>(null);
 
-  const connectWallet = async () => {
+  const [selectedToken, setSelectedToken] = useState<"BTC" | "ETH">("BTC");
+
+  const [dexPrices, setDexPrices] = useState<
+    {
+      name: string;
+      price: number;
+      spread: number;
+    }[]
+  >([]);
+  const [bestDexIndex, setBestDexIndex] = useState<number>(0);
+  const [bestPrice, setBestPrice] = useState<number>(0);
+
+  const connectWallet = useCallback(async () => {
     if (typeof window.ethereum !== "undefined") {
       try {
         const accounts = await window.ethereum.request({
@@ -41,7 +54,102 @@ export default function Home() {
     } else {
       console.log("Please install MetaMask!");
     }
-  };
+  }, []);
+
+  const fetchPrice = useCallback(async () => {
+    setLoading(true);
+    const entryId = process.env.NEXT_PUBLIC_ENTRY_ID;
+    const accessToken = process.env.NEXT_PUBLIC_KRNL_ACCESS_TOKEN;
+    const privateKey = process.env.NEXT_PUBLIC_PRIVATE_KEY;
+    const RPC_URL = "https://v0-0-1-rpc.node.lat";
+    const smartContractAddress = "0xdD870eB3378cfae3E7beE375279aB22cf5712401";
+
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+
+    if (!privateKey) {
+      throw new Error("Private key is not defined");
+    }
+
+    const walletAddress = new ethers.Wallet(privateKey);
+    const signer = new ethers.Wallet(privateKey, provider);
+
+    const contract = new ethers.Contract(
+      smartContractAddress,
+      ContractABI,
+      signer,
+    );
+
+    try {
+      if (!entryId) {
+        throw new Error("Entry ID is not defined");
+      }
+
+      if (!accessToken) {
+        throw new Error("Access token is not defined");
+      }
+
+      if (!walletAddress) {
+        throw new Error("Wallet address is not defined");
+      }
+
+      const abiEncodedString = AbiCoder.defaultAbiCoder().encode(
+        ["string"],
+        [`${selectedToken}/USD`],
+      );
+
+      const functionParams = AbiCoder.defaultAbiCoder().encode(
+        ["uint8"],
+        [TokenMapping[selectedToken].toString()],
+      );
+
+      const executionResult = await provider.executeKernels(
+        entryId,
+        accessToken,
+        {
+          senderAddress: walletAddress.address,
+          kernelPayload: {
+            "341": {
+              // @ts-ignore
+              functionParams: abiEncodedString,
+            },
+          },
+        },
+        functionParams,
+      );
+
+      const krnlPayload = {
+        auth: executionResult.auth,
+        kernelResponses: executionResult.kernel_responses,
+        kernelParams: executionResult.kernel_params,
+      };
+
+      let tx: any;
+
+      try {
+        const updateSavedRate = contract.getFunction("updateSavedRate");
+
+        if (updateSavedRate) {
+          tx = await updateSavedRate(krnlPayload, functionParams);
+        }
+
+        const savedRate = await contract.getSavedRate(
+          TokenMapping[selectedToken],
+        );
+        console.log("savedRate", savedRate);
+        setPrice(savedRate);
+      } catch (e) {
+        console.error(e);
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        return { error: error.message };
+      } else {
+        return { error: "An unknown error occurred" };
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [ethers, selectedToken]);
 
   useEffect(() => {
     if (typeof window.ethereum !== "undefined") {
@@ -50,144 +158,6 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    console.log("Effect running...");
-
-    const fetchPrice = async () => {
-      console.log("Fetching price...");
-
-      const entryId = process.env.NEXT_PUBLIC_ENTRY_ID;
-      const accessToken = process.env.NEXT_PUBLIC_KRNL_ACCESS_TOKEN;
-      const RPC_URL = "https://v0-0-1-rpc.node.lat";
-      const walletAddress = process.env.NEXT_PUBLIC_WALLET_ADDRESS;
-      const smartContractAddress = "0xdD870eB3378cfae3E7beE375279aB22cf5712401";
-
-      let currentAccount = null;
-
-      console.log("Entry ID:", entryId);
-      console.log("Access Token:", accessToken);
-      console.log("Wallet Address:", walletAddress);
-      console.log("Smart Contract Address:", smartContractAddress);
-
-      const provider = new ethers.JsonRpcProvider(RPC_URL);
-      const signer = new ethers.JsonRpcSigner(
-        provider,
-        account || walletAddress || "",
-      );
-
-      try {
-        if (!entryId) {
-          throw new Error("Entry ID is not defined");
-        }
-
-        if (!accessToken) {
-          throw new Error("Access token is not defined");
-        }
-
-        if (!walletAddress) {
-          throw new Error("Wallet address is not defined");
-        }
-
-        // const data = await provider.getKernelsCost(entryId);
-        console.log("signer", signer.address);
-
-        const abiEncodedString = AbiCoder.defaultAbiCoder().encode(
-          ["string"],
-          ["BTC/USD"],
-        );
-
-        console.log("Before executeKernels:");
-        console.log("entryId:", entryId);
-        console.log("accessToken:", accessToken);
-        console.log("walletAddress:", walletAddress);
-        console.log("abiEncodedString:", abiEncodedString);
-
-        const executionResult = await provider.executeKernels(
-          entryId,
-          accessToken,
-          {
-            senderAddress: walletAddress,
-            kernelPayload: {
-              "341": {
-                functionParams: abiEncodedString,
-              },
-            },
-          },
-          abiEncodedString,
-        );
-
-        console.log("executing kernel method ...");
-
-        console.log("Raw Kernel Response:");
-        console.log("auth:", executionResult.auth);
-        console.log("kernel_responses:", executionResult.kernel_responses);
-        console.log("kernel_params:", executionResult.kernel_params);
-
-        const contract = new ethers.Contract(
-          smartContractAddress,
-          ContractABI,
-          signer,
-        );
-
-        console.log("contract", contract);
-        console.log("kernelPrams are", executionResult.kernel_params);
-        console.log("kernel resonse is", executionResult.kernel_responses);
-
-        const krnlPayload = {
-          auth: executionResult.auth,
-          kernelResponses: executionResult.kernel_responses,
-          kernelParams: executionResult.kernel_params,
-        };
-
-        console.log("krnlPayload", krnlPayload);
-        console.log("signature token is", krnlPayload.auth);
-
-        console.log("Calling updateSavedRate with:");
-        console.log("krnlPayload:", JSON.stringify(krnlPayload)); // VERY IMPORTANT
-        console.log("TokenMapping.BTC:", TokenMapping.BTC);
-
-        let tx: any;
-
-        try {
-          const updateSavedRate = contract.getFunction("updateSavedRate");
-
-          console.log(await contract.getAddress());
-
-          if (updateSavedRate) {
-            console.log("kernelPayload", krnlPayload);
-            console.log("Token mapping", 1);
-            tx = await updateSavedRate(krnlPayload, TokenMapping.BTC);
-          }
-          await tx.wait();
-          console.log("Transaction successful! Transaction hash:", tx.hash);
-
-          const savedRate = await contract.getSavedRate(TokenMapping.BTC);
-          console.log("Updated BTC Rate:", savedRate.toString());
-          setPrice(savedRate);
-        } catch (e) {
-          console.error(e);
-        }
-        console.log("getting price ...");
-        console.log("encodedPrice", tx);
-
-        // if (tx) {
-        //   const decodedPrice = AbiCoder.defaultAbiCoder().decode(
-        //     ["uint256"],
-        //     tx,
-        //   );
-        //   console.log("decodedPrice", decodedPrice);
-        //   setPrice(decodedPrice[0]);
-        // } else {
-        //   console.log(error);
-        //   throw new Error("No data received from getKernelsCost");
-        // }
-      } catch (error) {
-        if (error instanceof Error) {
-          return { error: error.message };
-        } else {
-          return { error: "An unknown error occurred" };
-        }
-      }
-    };
     if (account) {
       setLoading(true);
       fetchPrice()
@@ -200,32 +170,127 @@ export default function Home() {
           setLoading(false);
         });
     }
-  }, [account]);
+  }, [account, selectedToken, ethers]);
 
   return (
-    <div>
-      <h1>DEX Price Comparison (Demonstration)</h1>
-      {hasMetamask ? (
-        !isConnected ? (
-          <button onClick={connectWallet}>Connect Wallet</button>
-        ) : (
-          <p>Connected account: {account}</p>
-        )
-      ) : (
-        <p>Please install MetaMask</p>
-      )}
+    <div className="min-h-screen bg-gray-100 py-8 px-4">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-3xl font-bold text-gray-800 mb-8 text-center">
+          🚀 Multi-DEX Price Comparison
+        </h1>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      {price && <p>Price: {price.toFixed(4)}</p>}
-      {loading && <p>Loading...</p>}
+        {/* Wallet Connection Section */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+          {hasMetamask ? (
+            !isConnected ? (
+              <button
+                onClick={connectWallet}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+              >
+                🔗 Connect MetaMask
+              </button>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <span className="text-green-500">●</span>
+                <p className="text-gray-600">
+                  Connected:{" "}
+                  <span className="font-mono">
+                    {account?.slice(0, 6)}...{account?.slice(-4)}
+                  </span>
+                </p>
+              </div>
+            )
+          ) : (
+            <p className="text-red-500">Please install MetaMask</p>
+          )}
+        </div>
 
-      {!isConnected && <p>Connect your wallet to see the price</p>}
+        {/* Token Selector */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+          <div className="flex items-center space-x-4 mb-6">
+            <span className="text-gray-700">Select Token:</span>
+            <div className="flex space-x-2">
+              {["BTC", "ETH"].map((token) => (
+                <button
+                  key={token}
+                  onClick={() => setSelectedToken(token as "BTC" | "ETH")}
+                  className={`px-4 py-2 rounded-lg ${
+                    selectedToken === token
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {token}
+                </button>
+              ))}
+            </div>
+          </div>
 
-      <p>
-        <b>Note:</b> This is a demonstration. Real DEX price comparison requires
-        a smart contract with functions to retrieve prices from different
-        sources.
-      </p>
+          {/* Price Refresh Control */}
+          <button
+            onClick={fetchPrice}
+            disabled={loading}
+            className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {loading ? "⏳ Fetching Prices..." : "🔄 Refresh Prices"}
+          </button>
+        </div>
+
+        {/* DEX Price Comparison */}
+        {Boolean(price) && (
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">
+              {selectedToken} Prices Across DEXs
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {dexPrices.map((dex, index) => (
+                <div key={dex.name} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold">{dex.name}</h3>
+                    <span className="text-sm text-gray-500">
+                      Spread: {dex.spread}%
+                    </span>
+                  </div>
+                  <div className="text-2xl font-bold text-gray-800">
+                    ${dex.price.toFixed(2)}
+                  </div>
+                  <div
+                    className={`text-sm ${
+                      index === bestDexIndex ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {index === bestDexIndex
+                      ? "Best Value"
+                      : `$${(dex.price - bestPrice).toFixed(2)} difference`}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Educational Section */}
+        <div className="bg-blue-50 rounded-lg shadow-sm p-6">
+          <h2 className="text-lg font-semibold mb-3 text-gray-800">
+            💡 How It Works
+          </h2>
+          <p className="text-gray-600">
+            We compare {selectedToken} prices across multiple decentralized
+            exchanges (DEXs) to help you find the best trading price. The{" "}
+            <span className="text-green-600">"Best Value"</span>
+            indicator shows which DEX currently offers the most favorable rate
+            for your {selectedToken}
+            transactions.
+          </p>
+        </div>
+
+        {error && (
+          <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-lg">
+            ⚠️ Error: {error}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
