@@ -1,53 +1,92 @@
-import { ethers } from "hardhat";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
+import { ethers, run } from "hardhat";
+import * as dotenv from "dotenv";
 
-const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  const { deployments, getNamedAccounts, network } = hre;
+const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
+  const { deployments, getNamedAccounts } = hre;
   const { deploy } = deployments;
-  const { deployer } = await getNamedAccounts();
+  const [deployer] = await ethers.getSigners(); // Use hre.ethers to access ethers
 
-  console.log(`Deploying to network: ${network.name}`);
+  const walletAddress = deployer.address;
+  const ownerAddress = process.env.INITIAL_OWNER_ADDRESS || walletAddress;
 
-  let tokenAuthorityAddress: string;
+  console.log("======================================");
+  console.log("DEPLOYER:", walletAddress);
+  console.log("Owner address for OM and TA:", ownerAddress);
+  console.log("======================================");
 
-  // Deploy TokenAuthority to Sapphire Oasis
-  if (network.name === "sapphire-testnet") {
-    console.log("Deploying TokenAuthority to Sapphire Oasis...");
-    const tokenAuthorityDeployResult = await deploy("TokenAuthority", {
-      from: deployer,
-      args: [deployer], // initialOwner
-      log: true,
-      waitConfirmations: 1,
+  // TOKEN AUTHORITY TokenAuthority.sol
+  console.log("START DEPLOYING TOKEN AUTHORITY");
+  const providerTokenAuthority = new ethers.JsonRpcProvider(
+    `https://testnet.sapphire.oasis.io`
+  );
+  const walletTokenAuthority = new ethers.Wallet(
+    `${process.env.PRIVATE_KEY_OASIS}`,
+    providerTokenAuthority
+  );
+
+  const ContractTokenAuthority = await ethers.getContractFactory(
+    "TokenAuthority",
+    walletTokenAuthority
+  );
+  const contractTokenAuthority = await ContractTokenAuthority.deploy(
+    ownerAddress
+  );
+
+  console.log("DEPLOYED TOKEN AUTHORITY");
+  const addressTokenAuthority = await contractTokenAuthority.getAddress(); // Use getAddress()
+  console.log("Contract deployed to:", addressTokenAuthority);
+  await new Promise((r) => setTimeout(r, 15000));
+  const [TAPublicKeyHash, TAPublicKeyAddress] =
+    await contractTokenAuthority.getSigningKeypairPublicKey();
+
+  console.log("Token Authority Public Key in hash value:", TAPublicKeyHash);
+  console.log(
+    "Token Authority Public Key in address value:",
+    TAPublicKeyAddress
+  );
+  console.log("======================================");
+
+  // SMART CONTRACT Sample.sol
+  const providerMain = new ethers.JsonRpcProvider(
+    `https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`
+  );
+  const walletMain = new ethers.Wallet(
+    `${process.env.PRIVATE_KEY_SEPOLIA}`,
+    providerMain
+  );
+
+  const ContractMain = await ethers.getContractFactory(
+    "priceComparer",
+    walletMain
+  );
+  const contractMain = await ContractMain.deploy(TAPublicKeyAddress);
+  const addressMain = await contractMain.getAddress(); // Use getAddress()
+  console.log("Contract deployed to:", addressMain);
+
+  // VERIFYING PART
+  await new Promise((r) => setTimeout(r, 60000));
+  try {
+    console.log("TRY VERIFYING CONTRACT");
+    await run("verify:verify", {
+      address: addressMain,
+      constructorArguments: [TAPublicKeyAddress],
     });
-    tokenAuthorityAddress = tokenAuthorityDeployResult.address;
-    console.log(`TokenAuthority deployed to: ${tokenAuthorityAddress}`);
-  } else {
-    // If not on Sapphire, use a mock address or skip deployment
-    tokenAuthorityAddress = "0x0000000000000000000000000000000000000000"; // Or skip deployment entirely
-    console.log("Skipping TokenAuthority deployment (not on Sapphire)");
+    console.log(`CONTRACT: ${addressMain} IS VERIFIED ON ETHERSCAN`);
+  } catch (error: any) {
+    console.error("VERIFY FAILED WITH ERROR:", error.message);
   }
 
-  // Deploy DexPriceComparator to Sepolia
-  if (network.name === "sepolia") {
-    console.log("Deploying DexPriceComparator to Sepolia...");
-
-    const dexPriceComparatorDeployResult = await deploy("DexPriceComparator", {
-      from: deployer,
-      log: true,
-      waitConfirmations: 1,
-    });
-
-    console.log(`DexPriceComparator deployed to: ${dexPriceComparatorDeployResult.address}`);
-
-    // Get the deployed contract
-    const dexPriceComparator = await ethers.getContractAt("DexPriceComparator", dexPriceComparatorDeployResult.address);
-
-  } else {
-    console.log("Skipping DexPriceComparator deployment (not on Sepolia)");
-  }
+  // SUMMARY
+  console.log("=====SUMMARY=====");
+  console.log(
+    "\nToken Authority - Oasis Sapphire testnet\nAddress:",
+    addressTokenAuthority
+  );
+  console.log("\nRegistered Smart Contract - Sepolia\nAddress:", addressMain);
+  console.log("=================");
 };
 
-deploy.tags = ["DexPriceComparator", "TokenAuthority"];
-
-export default deploy;
+export default func;
+func.tags = ["PriceComparer"]; // Add a tag for this deployment
