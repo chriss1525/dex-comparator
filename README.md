@@ -21,6 +21,7 @@ The project consists of three main smart contracts:
 - DEX Comparator: [Sepolia](https://sepolia.etherscan.io/address/0xdD870eB3378cfae3E7beE375279aB22cf5712401#code)
 - Token Authority: [Oasis Sapphire Testnet](https://explorer.oasis.io/testnet/sapphire/address/0x4c9AD908A26a9c560cc7c341f1f971A4Be10DAC8/code#code)
 - KRNL Platform Registration: Smart Contract ID 3581
+- DApp platfomr Registration: DApp ID 3581
 
 ## KRNL Protocol Integration
 
