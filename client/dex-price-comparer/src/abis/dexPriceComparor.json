@@ -66,32 +66,45 @@
   },
   {
     "inputs": [
-      {
-        "components": [
-          { "internalType": "bytes", "name": "auth", "type": "bytes" },
-          {
-            "internalType": "bytes",
-            "name": "kernelResponses",
-            "type": "bytes"
-          },
-          { "internalType": "bytes", "name": "kernelParams", "type": "bytes" }
-        ],
-        "internalType": "struct KrnlPayload",
-        "name": "krnlPayload",
-        "type": "tuple"
-      },
       { "internalType": "enum Token", "name": "token", "type": "uint8" }
     ],
-    "name": "getExchangeRate",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
-    "stateMutability": "nonpayable",
+    "name": "findBestDeal",
+    "outputs": [
+      { "internalType": "enum Dex", "name": "", "type": "uint8" },
+      { "internalType": "uint256", "name": "", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getAllRates",
+    "outputs": [
+      {
+        "internalType": "uint256[3]",
+        "name": "ethRates",
+        "type": "uint256[3]"
+      },
+      {
+        "internalType": "uint256[3]",
+        "name": "btcRates",
+        "type": "uint256[3]"
+      },
+      {
+        "internalType": "uint256[3]",
+        "name": "timestamps",
+        "type": "uint256[3]"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
+      { "internalType": "enum Dex", "name": "dex", "type": "uint8" },
       { "internalType": "enum Token", "name": "token", "type": "uint8" }
     ],
-    "name": "getSavedRate",
+    "name": "getRateForDex",
     "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
     "stateMutability": "view",
     "type": "function"
@@ -104,7 +117,10 @@
     "type": "function"
   },
   {
-    "inputs": [{ "internalType": "string", "name": "", "type": "string" }],
+    "inputs": [
+      { "internalType": "enum Dex", "name": "", "type": "uint8" },
+      { "internalType": "enum Token", "name": "", "type": "uint8" }
+    ],
     "name": "rates",
     "outputs": [
       { "internalType": "uint256", "name": "rate", "type": "uint256" },
@@ -165,9 +181,10 @@
         "name": "krnlPayload",
         "type": "tuple"
       },
+      { "internalType": "enum Dex", "name": "dex", "type": "uint8" },
       { "internalType": "enum Token", "name": "token", "type": "uint8" }
     ],
-    "name": "updateSavedRate",
+    "name": "updateDexRates",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

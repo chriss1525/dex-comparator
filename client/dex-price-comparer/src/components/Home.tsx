@@ -1,8 +1,6 @@
 "use client";
-
 import React, { useCallback, useState, useEffect } from "react";
 import { ethers } from "krnl-sdk";
-import { AbiCoder } from "krnl-sdk";
 import ContractABI from "../abis/dexPriceComparor.json";
 
 declare global {
@@ -10,287 +8,227 @@ declare global {
     ethereum: any;
   }
 }
-const TokenMapping = {
-  ETH: 0,
-  BTC: 1,
-};
+
+interface DexPrice {
+  name: string;
+  btcPrice: number;
+  ethPrice: number;
+  timestamp: number;
+}
+
+const CONTRACT_ADDRESS = "0x5653CE584604792237420B9D9bfF3D2197Ec1fdc";
+const RPC_URL = "https://v0-0-1-rpc.node.lat";
 
 export default function Home() {
+  // State management
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [account, setAccount] = useState("");
+  const [prices, setPrices] = useState<DexPrice[]>([]);
+  const [bestDeal, setBestDeal] = useState("");
 
-  const [hasMetamask, setHasMetamask] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
+  // Initialize ethers components once
+  const getEthers = useCallback(() => {
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const signer = new ethers.Wallet(
+      process.env.NEXT_PUBLIC_PRIVATE_KEY!,
+      provider,
+    );
+    return {
+      contract: new ethers.Contract(CONTRACT_ADDRESS, ContractABI, signer),
+      signer,
+      provider,
+    };
+  }, []);
 
-  const [price, setPrice] = useState<number | null>(null);
-  const [account, setAccount] = useState<string | null>(null);
-
-  const [selectedToken, setSelectedToken] = useState<"BTC" | "ETH">("BTC");
-
-  const [dexPrices, setDexPrices] = useState<
-    {
-      name: string;
-      price: number;
-      spread: number;
-    }[]
-  >([]);
-  const [bestDexIndex, setBestDexIndex] = useState<number>(0);
-  const [bestPrice, setBestPrice] = useState<number>(0);
-
+  // Wallet connection handler
   const connectWallet = useCallback(async () => {
-    if (typeof window.ethereum !== "undefined") {
-      try {
-        const accounts = await window.ethereum.request({
-          method: "eth_requestAccounts",
-        });
-        setIsConnected(true);
-        setHasMetamask(true);
-        if (accounts.length > 0) {
-          setAccount(accounts[0]);
-        }
-      } catch (error) {
-        console.error("User denied account access");
+    try {
+      if (!window.ethereum) throw new Error("MetaMask not installed");
+
+      const [account] = await window.ethereum.request({
+        method: "eth_requestAccounts",
+      });
+      setAccount(account);
+      await refreshPrices();
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(`Wallet error: ${err.message}`);
       }
-    } else {
-      console.log("Please install MetaMask!");
     }
   }, []);
 
-  const fetchPrice = useCallback(async () => {
+  // Unified price update handler
+  const updateAllPrices = useCallback(async () => {
+    const { contract, signer } = getEthers();
     setLoading(true);
-    const entryId = process.env.NEXT_PUBLIC_ENTRY_ID;
-    const accessToken = process.env.NEXT_PUBLIC_KRNL_ACCESS_TOKEN;
-    const privateKey = process.env.NEXT_PUBLIC_PRIVATE_KEY;
-    const RPC_URL = "https://v0-0-1-rpc.node.lat";
-    const smartContractAddress = "0xdD870eB3378cfae3E7beE375279aB22cf5712401";
-
-    const provider = new ethers.JsonRpcProvider(RPC_URL);
-
-    if (!privateKey) {
-      throw new Error("Private key is not defined");
-    }
-
-    const walletAddress = new ethers.Wallet(privateKey);
-    const signer = new ethers.Wallet(privateKey, provider);
-
-    const contract = new ethers.Contract(
-      smartContractAddress,
-      ContractABI,
-      signer,
-    );
+    setError("");
 
     try {
-      if (!entryId) {
-        throw new Error("Entry ID is not defined");
+      // Process all DEXes sequentially
+
+      if (!signer.provider) {
+        setError("Wallet provider not available");
+        return;
       }
 
-      if (!accessToken) {
-        throw new Error("Access token is not defined");
-      }
+      for (const dexName of ["Dex1", "Dex2", "Dex3"]) {
+        // Update both tokens for each DEX
+        for (const token of ["BTC", "ETH"]) {
+          const feeData = await signer.provider.getFeeData();
 
-      if (!walletAddress) {
-        throw new Error("Wallet address is not defined");
-      }
+          if (!feeData.gasPrice) {
+            setError("fee gas price is not set");
+            return;
+          }
 
-      const abiEncodedString = AbiCoder.defaultAbiCoder().encode(
-        ["string"],
-        [`${selectedToken}/USD`],
-      );
+          const gasPrice =
+            (BigInt(feeData.gasPrice.toString()) * BigInt(150)) / BigInt(100);
 
-      const functionParams = AbiCoder.defaultAbiCoder().encode(
-        ["uint8"],
-        [TokenMapping[selectedToken].toString()],
-      );
+          // Execute kernel and send Transaction
 
-      const executionResult = await provider.executeKernels(
-        entryId,
-        accessToken,
-        {
-          senderAddress: walletAddress.address,
-          kernelPayload: {
-            "341": {
-              // @ts-ignore
-              functionParams: abiEncodedString,
+          const executionResult = await signer.provider.executeKernels(
+            process.env.NEXT_PUBLIC_ENTRY_ID!,
+            process.env.NEXT_PUBLIC_KRNL_ACCESS_TOKEN!,
+            {
+              senderAddress: signer.address,
+              kernelPayload: {
+                "341": {
+                  functionParams: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["string"],
+                    [`${token}/USD`],
+                  ),
+                },
+              },
             },
-          },
-        },
-        functionParams,
-      );
+            ethers.AbiCoder.defaultAbiCoder().encode(
+              ["uint8"],
+              [token === "BTC" ? 1 : 0],
+            ),
+          );
 
-      const krnlPayload = {
-        auth: executionResult.auth,
-        kernelResponses: executionResult.kernel_responses,
-        kernelParams: executionResult.kernel_params,
-      };
+          const tx = await contract.updateDexRates(
+            {
+              auth: executionResult.auth,
+              kernelResponses: executionResult.kernel_responses,
+              kernelParams: executionResult.kernel_params,
+            },
+            dexName === "Dex1" ? 0 : dexName === "Dex2" ? 1 : 2,
+            token === "BTC" ? 1 : 0,
+            {
+              gasLimit: 300000,
+              gasPrice: `0x${gasPrice.toString(16)}`,
+              nonce: await signer.getNonce(),
+            },
+          );
 
-      let tx: any;
-
-      try {
-        const updateSavedRate = contract.getFunction("updateSavedRate");
-
-        if (updateSavedRate) {
-          tx = await updateSavedRate(krnlPayload, functionParams);
+          await tx.wait();
         }
-
-        const savedRate = await contract.getSavedRate(
-          TokenMapping[selectedToken],
-        );
-        console.log("savedRate", savedRate);
-        setPrice(savedRate);
-      } catch (e) {
-        console.error(e);
       }
-    } catch (error) {
-      if (error instanceof Error) {
-        return { error: error.message };
-      } else {
-        return { error: "An unknown error occurred" };
+
+      await refreshPrices();
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(`Transaction failed: ${err.message}`);
       }
     } finally {
       setLoading(false);
     }
-  }, [ethers, selectedToken]);
+  }, []);
 
-  useEffect(() => {
-    if (typeof window.ethereum !== "undefined") {
-      setHasMetamask(true);
+  // Fetch and process rates
+  const refreshPrices = useCallback(async () => {
+    try {
+      const { contract } = getEthers();
+      const [ethRates, btcRates, timestamps] = await contract.getAllRates();
+
+      // Convert BigInt values to numbers
+      const processed = ethRates.map((eth: bigint, i: number) => ({
+        name: `Dex${i + 1}`,
+        ethPrice: Number(eth) / 100,
+        btcPrice: Number(btcRates[i]) / 100,
+        timestamp: Number(timestamps[i]),
+      }));
+
+      setPrices(processed);
+      updateBestDeal(processed);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(`Data fetch failed: ${err.message}`);
+      }
     }
   }, []);
 
+  // Best deal calculation
+  const updateBestDeal = useCallback((prices: DexPrice[]) => {
+    const valid = prices.filter(
+      (p) => Date.now() - p.timestamp * 1000 < 24 * 60 * 60 * 1000,
+    );
+
+    setBestDeal(
+      valid.length
+        ? valid.reduce((a, b) => (a.btcPrice < b.btcPrice ? a : b)).name
+        : "",
+    );
+  }, []);
+
+  // Auto-refresh on account change
   useEffect(() => {
-    if (account) {
-      setLoading(true);
-      fetchPrice()
-        .then((result) => {
-          if (result?.error) setError(result.error);
-          setLoading(false);
-        })
-        .catch((error) => {
-          setError(error.message);
-          setLoading(false);
-        });
-    }
-  }, [account, selectedToken, ethers]);
+    if (account) refreshPrices();
+  }, [account]);
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-8 text-center">
-          🚀 Multi-DEX Price Comparison
-        </h1>
-
-        {/* Wallet Connection Section */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          {hasMetamask ? (
-            !isConnected ? (
-              <button
-                onClick={connectWallet}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-              >
-                🔗 Connect MetaMask
-              </button>
-            ) : (
-              <div className="flex items-center space-x-2">
-                <span className="text-green-500">●</span>
-                <p className="text-gray-600">
-                  Connected:{" "}
-                  <span className="font-mono">
-                    {account?.slice(0, 6)}...{account?.slice(-4)}
-                  </span>
-                </p>
-              </div>
-            )
-          ) : (
-            <p className="text-red-500">Please install MetaMask</p>
-          )}
-        </div>
-
-        {/* Token Selector */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <div className="flex items-center space-x-4 mb-6">
-            <span className="text-gray-700">Select Token:</span>
-            <div className="flex space-x-2">
-              {["BTC", "ETH"].map((token) => (
-                <button
-                  key={token}
-                  onClick={() => setSelectedToken(token as "BTC" | "ETH")}
-                  className={`px-4 py-2 rounded-lg ${
-                    selectedToken === token
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  {token}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Price Refresh Control */}
+    <div className="min-h-screen bg-gray-100 p-8">
+      {/* Wallet Connection */}
+      <div className="mb-8">
+        {!account ? (
           <button
-            onClick={fetchPrice}
-            disabled={loading}
-            className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
+            onClick={connectWallet}
+            className="bg-blue-600 text-white px-4 py-2 rounded"
           >
-            {loading ? "⏳ Fetching Prices..." : "🔄 Refresh Prices"}
+            Connect Wallet
           </button>
-        </div>
-
-        {/* DEX Price Comparison */}
-        {Boolean(price) && (
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">
-              {selectedToken} Prices Across DEXs
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {dexPrices.map((dex, index) => (
-                <div key={dex.name} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold">{dex.name}</h3>
-                    <span className="text-sm text-gray-500">
-                      Spread: {dex.spread}%
-                    </span>
-                  </div>
-                  <div className="text-2xl font-bold text-gray-800">
-                    ${dex.price.toFixed(2)}
-                  </div>
-                  <div
-                    className={`text-sm ${
-                      index === bestDexIndex ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
-                    {index === bestDexIndex
-                      ? "Best Value"
-                      : `$${(dex.price - bestPrice).toFixed(2)} difference`}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Educational Section */}
-        <div className="bg-blue-50 rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold mb-3 text-gray-800">
-            💡 How It Works
-          </h2>
-          <p className="text-gray-600">
-            We compare {selectedToken} prices across multiple decentralized
-            exchanges (DEXs) to help you find the best trading price. The{" "}
-            <span className="text-green-600">"Best Value"</span>
-            indicator shows which DEX currently offers the most favorable rate
-            for your {selectedToken}
-            transactions.
-          </p>
-        </div>
-
-        {error && (
-          <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-lg">
-            ⚠️ Error: {error}
+        ) : (
+          <div className="text-green-600">
+            Connected: {account.slice(0, 6)}...{account.slice(-4)}
           </div>
         )}
       </div>
+
+      {/* Price Update Control */}
+      <button
+        onClick={updateAllPrices}
+        disabled={loading}
+        className="bg-green-600 text-white px-4 py-2 rounded mb-8 disabled:opacity-50"
+      >
+        {loading ? "Updating Prices..." : "Refresh All Prices"}
+      </button>
+
+      {/* Price Display */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {prices.map((dex) => (
+          <div
+            key={dex.name}
+            className={`p-4 rounded-lg ${bestDeal === dex.name ? "bg-green-100" : "bg-white"}`}
+          >
+            <h3 className="text-xl font-bold mb-2">{dex.name}</h3>
+            <div className="space-y-1">
+              <p>BTC: ${dex.btcPrice.toFixed(2)}</p>
+              <p>ETH: ${dex.ethPrice.toFixed(2)}</p>
+              <p className="text-sm text-gray-500">
+                Updated: {new Date(dex.timestamp * 1000).toLocaleTimeString()}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="mt-4 p-4 bg-red-100 text-red-700 rounded">
+          Error: {error}
+        </div>
+      )}
     </div>
   );
 }
