@@ -1,4 +1,4 @@
-# DEX Price Compararer with KRNL Protocol Integration
+# DEX Price Comparer with KRNL Protocol Integration
 
 This project demonstrates the integration of KRNL Protocol for secure price data retrieval in a decentralized exchange (DEX) price comparison system.
 
@@ -9,6 +9,7 @@ The project consists of three main smart contracts:
 1. **KRNL.sol**: Base contract implementing KRNL Protocol's authorization logic
 2. **dexComparator.sol**: Main contract handling price comparison functionality
 3. **tokenAuthority.sol**: Manages signing and verification of kernel executions
+4. ***Frontend***: React-based frontend for user interaction
 
 ### Smart Contract Architecture
 
@@ -18,10 +19,10 @@ The project consists of three main smart contracts:
 
 ### Deployments
 
-- DEX Comparator: [Sepolia](https://sepolia.etherscan.io/address/0xdD870eB3378cfae3E7beE375279aB22cf5712401#code)
-- Token Authority: [Oasis Sapphire Testnet](https://explorer.oasis.io/testnet/sapphire/address/0x4c9AD908A26a9c560cc7c341f1f971A4Be10DAC8/code#code)
-- KRNL Platform Registration: Smart Contract ID 3581
-- DApp platfomr Registration: DApp ID 3581
+- DEX Comparator: [Sepolia](https://sepolia.etherscan.io/address/0x5653CE584604792237420B9D9bfF3D2197Ec1fdc#code)
+- Token Authority: [Oasis Sapphire Testnet](https://explorer.oasis.io/testnet/sapphire/address/0x0BF8100A95472583955285804761cCE56c7426Ce/code#code)
+- KRNL Platform Registration: Smart Contract ID 4614
+- DApp platform Registration: DApp ID 4394
 
 ## KRNL Protocol Integration
 
@@ -51,6 +52,7 @@ The frontend integration is built with Next.js and demonstrates the kernel execu
 
 2. Execute kernels through KRNL SDK:
 
+
 ```typescript
 const executionResult = await provider.executeKernels(
   entryId,
@@ -67,7 +69,9 @@ const executionResult = await provider.executeKernels(
 );
 ```
 
+
 3. Use Kernel Response to query smart contract Methods
+
 
 ```typescript
 const krnlPayload = {
@@ -88,60 +92,66 @@ if (updateSavedRate) {
     }
 ```
 
+
 ## Development Journey & Challenges
 
 ### Documentation Insights
-The documentation provides strong foundational guidance for:
+
+The KRNL Protocol documentation has significantly improved, providing a solid foundation for:
+
 - Smart contract deployment
 - Kernel building
 - Token authority setup
 
-### Integration Challenges
-While building the dApp integration, several areas emerged that would benefit from expanded documentation:
+### Integration Experience
 
-#### Technical Documentation Needs
-- Specific RPC URL configuration guidance
-- Contract configuration steps post-signer/provider setup
-- Practical examples of function call data encoding
-- Common error resolution patterns for protected method interactions
+Initially, integrating the dApp presented some challenges. However, with continued development, really hands on developer support and an improved DApp integration documentation, the frontend is now successfully connected to the smart contracts, enabling the retrieval and display of price data.
+
 
 #### Current Implementation Status
+
 - Smart contracts successfully deployed and verified
 - Token Authority operational on Oasis Sapphire
-- KRNL Platform registration complete (ID: 3581)
-- Frontend shell implemented for initial testing
-- Blocked at protected method calls due to signature verification issues
+- KRNL Platform registration complete
+- Frontend successfully connected to smart contracts and displaying data
+- Mock oracle kernel price retrieval implemented
 
 #### Development Focus
-The current implementation prioritizes core functionality verification:
-- Mock oracle kernel price retrieval testing
-- Basic frontend structure
-- Protected method interaction testing
 
-The UI development is intentionally minimal until core kernel interactions are validated. This approach allows for focused debugging and ensures foundational protocol integration works before expanding the user interface.
+The current implementation prioritizes core functionality:
+
+- Mock oracle kernel price retrieval
+- Basic frontend structure
+- Protected method interaction
+
+The UI development is ongoing and will continue to be enhanced.
 
 ### Documentation Contribution
+
 This project aims to document the integration process thoroughly to benefit future developers working with the KRNL Protocol. The detailed implementation steps and encountered challenges serve as practical reference points for the community.
 
 ## How to Interact
- First make sure you have metamask installed in your browser.
+
+First make sure you have MetaMask installed in your browser.
 
 ### Frontend Setup
 
+```bash
 cd client/dex-price-comparer
-npm install
-npm run dev
-
+pnpm install
+pnpm dev
+```
 
 Environment Variables
+```bash
 NEXT_PUBLIC_ENTRY_ID=your_entry_id
 NEXT_PUBLIC_KRNL_ACCESS_TOKEN=your_access_token
 NEXT_PUBLIC_WALLET_ADDRESS=your_wallet_address
-
+```
 
 ## Next Steps
 
-- Resolve signature verification issues
-- Write a price comparisson kernel that expands the coin list
+- Write a price comparison kernel that expands the coin list
 - Add additional DEX integrations
 - Improve error handling and user feedback
+- Enhance the UI with more visual elements and responsive design
