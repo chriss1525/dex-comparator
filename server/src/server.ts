@@ -99,6 +99,24 @@ app.get('/eth', async (req, res) => {
   }
 });
 
+app.get('/', (req, res) => {
+  res.json({
+    name: "PriceOracle API",
+    description: "Real-time cryptocurrency price aggregator",
+    version: "1.0.0",
+    endpoints: {
+      "/btc": "Get Bitcoin prices from multiple exchanges",
+      "/eth": "Get Ethereum prices from multiple exchanges"
+    },
+    usage: {
+      example: "GET /btc or GET /eth",
+      response_format: "Array of exchange prices with timestamps"
+    },
+    exchanges: ["CoinGecko", "Coinbase", "KuCoin"],
+    documentation: "OpenAPI documentation available at /openapi.yaml"
+  });
+});
+
 
 
 async function getCoinGeckoRates(): Promise<CryptoRates> {
