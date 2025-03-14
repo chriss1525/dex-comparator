@@ -124,6 +124,7 @@ async function getCoinbaseRates(): Promise<CryptoRates> {
 }
 
 async function getKucoinRates(): Promise<CryptoRates> {
+  try {
   const [btcResponse, ethResponse] = await Promise.all([
     axios.get('https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=BTC-USDT'),
     axios.get('https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=ETH-USDT')
@@ -134,6 +135,10 @@ async function getKucoinRates(): Promise<CryptoRates> {
     ethereum: parseFloat(ethResponse.data.data.price),
     source: 'KuCoin'
   };
+} catch (error : any) {
+  console.error('Error fetching KuCoin rates:', error.message);
+  throw error;
+}
 }
 
 
