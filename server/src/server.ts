@@ -14,27 +14,28 @@ interface CryptoRates {
 // Get BTC rates endpoint
 app.get('/btc', async (req, res) => {
   try {
-    const [coinbaseRates, binanceRates] = await Promise.all([
+    const [coinGeckoRates, coinbaseRates] = await Promise.all([
+      getCoinGeckoRates(),
       getCoinbaseRates(),
-      getBinanceRates()
+      // getBinanceRates()
     ]);
 
     const formattedRates = [
-      // {
-      //   dex: "CoinGecko",
-      //   price: coinGeckoRates.bitcoin * 100,
-      //   timestamp: Math.floor(Date.now() / 1000)
-      // },
+      {
+        dex: "CoinGecko",
+        price: coinGeckoRates.bitcoin * 100,
+        timestamp: Math.floor(Date.now() / 1000)
+      },
       {
         dex: "Coinbase",
         price: coinbaseRates.bitcoin * 100,
         timestamp: Math.floor(Date.now() / 1000)
       },
-      {
-        dex: "Binance",
-        price: binanceRates.bitcoin * 100,
-        timestamp: Math.floor(Date.now() / 1000)
-      }
+      // {
+      //   dex: "Binance",
+      //   price: binanceRates.bitcoin * 100,
+      //   timestamp: Math.floor(Date.now() / 1000)
+      // }
     ];
 
     res.json(formattedRates);
@@ -46,27 +47,28 @@ app.get('/btc', async (req, res) => {
 // Get ETH rates endpoint
 app.get('/eth', async (req, res) => {
   try {
-    const [coinbaseRates, binanceRates] = await Promise.all([
+    const [coinGeckoRates, coinbaseRates] = await Promise.all([
+      getCoinGeckoRates(),
       getCoinbaseRates(),
-      getBinanceRates()
+      // getBinanceRates()
     ]);
 
     const formattedRates = [
-      // {
-      //   dex: "CoinGecko",
-      //   price: coinGeckoRates.ethereum * 100,
-      //   timestamp: Math.floor(Date.now() / 1000)
-      // },
+      {
+        dex: "CoinGecko",
+        price: coinGeckoRates.ethereum * 100,
+        timestamp: Math.floor(Date.now() / 1000)
+      },
       {
         dex: "Coinbase",
         price: coinbaseRates.ethereum * 100,
         timestamp: Math.floor(Date.now() / 1000)
       },
-      {
-        dex: "Binance",
-        price: binanceRates.ethereum * 100,
-        timestamp: Math.floor(Date.now() / 1000)
-      }
+      // {
+      //   dex: "Binance",
+      //   price: binanceRates.ethereum * 100,
+      //   timestamp: Math.floor(Date.now() / 1000)
+      // }
     ];
 
     res.json(formattedRates);
@@ -77,23 +79,30 @@ app.get('/eth', async (req, res) => {
 
 
 
-// Keep existing exchange fetching functions
-// async function getCoinGeckoRates(): Promise<CryptoRates> {
+async function getCoinGeckoRates(): Promise<CryptoRates> {
+  const [ethResponse, btcResponse] = await Promise.all([
+    axios.get('https://api.coingecko.com/api/v3/coins/ethereum', {
+      headers: {
+        'accept': 'application/json',
+        'x-cg-demo-api-key': process.env.COINGECKO_API_KEY
+      }
+    }),
+    axios.get('https://api.coingecko.com/api/v3/exchange_rates', {
+      headers: {
+        'accept': 'application/json',
+        'x-cg-demo-api-key': process.env.COINGECKO_API_KEY
+      }
+    })
+  ]);
 
-//   try {
-//   const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd');
+  return {
+    bitcoin: btcResponse.data.rates.usd.value,
+    ethereum: ethResponse.data.market_data.current_price.usd,
+    source: 'CoinGecko'
+  };
+}
 
-//   // console.log("coin Gecko prices are:", response.data['bitcoin'].usd, response.data['ethereum'].usd);
-//   return {
-//     bitcoin: response.data['bitcoin'].usd,
-//     ethereum: response.data['ethereum'].usd,
-//     source: 'CoinGecko'
-//   };
-// } catch (error : any) {
-//   console.error('Error fetching CoinGecko rates:', error.message);
-//   throw error;
-// }
-// }
+
 
 
 async function getCoinbaseRates(): Promise<CryptoRates> {
