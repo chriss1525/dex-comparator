@@ -51,7 +51,6 @@ app.get('/btc', async (req, res) => {
     const [coinGeckoRates, coinbaseRates] = await Promise.all([
       getCachedRates('coinGecko', getCoinGeckoRates),
       getCachedRates('coinbase', getCoinbaseRates),
-      // getCachedRates('kucoin', getKucoinRates)
     ]);
 
     const formattedRates = [
@@ -64,12 +63,7 @@ app.get('/btc', async (req, res) => {
         dex: "Coinbase",
         price: coinbaseRates.bitcoin * 100,
         timestamp: Math.floor(Date.now() / 1000)
-      },
-      // {
-      //   dex: "KuCoin",
-      //   price: kucoinRates.bitcoin * 100,
-      //   timestamp: Math.floor(Date.now() / 1000)
-      // }
+      }
     ];
 
     res.json(formattedRates);
@@ -84,7 +78,6 @@ app.get('/eth', async (req, res) => {
     const [coinGeckoRates, coinbaseRates] = await Promise.all([
       getCachedRates('coinGecko', getCoinGeckoRates),
       getCachedRates('coinbase', getCoinbaseRates),
-      // getCachedRates('kucoin', getKucoinRates)
     ]);
 
     const formattedRates = [
@@ -97,12 +90,7 @@ app.get('/eth', async (req, res) => {
         dex: "Coinbase",
         price: coinbaseRates.ethereum * 100,
         timestamp: Math.floor(Date.now() / 1000)
-      },
-      // {
-      //   dex: "Kucoin",
-      //   price: kucoinRates.ethereum * 100,
-      //   timestamp: Math.floor(Date.now() / 1000)
-      // }
+      }
     ];
 
     res.json(formattedRates);
@@ -153,24 +141,6 @@ async function getCoinbaseRates(): Promise<CryptoRates> {
   };
 } catch (error : any) {
   console.error('Error fetching Coinbase rates:', error.message);
-  throw error;
-}
-}
-
-async function getKucoinRates(): Promise<CryptoRates> {
-  try {
-  const [btcResponse, ethResponse] = await Promise.all([
-    axios.get('https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=BTC-USDT'),
-    axios.get('https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=ETH-USDT')
-  ]);
-  
-  return {
-    bitcoin: parseFloat(btcResponse.data.data.price),
-    ethereum: parseFloat(ethResponse.data.data.price),
-    source: 'KuCoin'
-  };
-} catch (error : any) {
-  console.error('Error fetching KuCoin rates:', error.message);
   throw error;
 }
 }
