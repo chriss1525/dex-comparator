@@ -82,9 +82,9 @@ app.get('/btc', async (req, res) => {
 app.get('/eth', async (req, res) => {
   try {
     const [coinGeckoRates, coinbaseRates, kucoinRates] = await Promise.all([
-      getCoinGeckoRates(),
-      getCoinbaseRates(),
-      getKucoinRates()
+      getCachedRates('coinGecko', getCoinGeckoRates),
+      getCachedRates('coinbase', getCoinbaseRates),
+      getCachedRates('kucoin', getKucoinRates)
     ]);
 
     const formattedRates = [
