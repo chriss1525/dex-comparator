@@ -81,6 +81,8 @@ app.get('/eth', async (req, res) => {
 
 // Keep existing exchange fetching functions
 async function getCoinGeckoRates(): Promise<CryptoRates> {
+
+  try {
   const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd');
 
   // console.log("coin Gecko prices are:", response.data['bitcoin'].usd, response.data['ethereum'].usd);
@@ -89,10 +91,16 @@ async function getCoinGeckoRates(): Promise<CryptoRates> {
     ethereum: response.data['ethereum'].usd,
     source: 'CoinGecko'
   };
+} catch (error : any) {
+  console.error('Error fetching CoinGecko rates:', error.message);
+  throw error;
+}
 }
 
 
 async function getCoinbaseRates(): Promise<CryptoRates> {
+  
+  try {
   const btcResponse = await axios.get('https://api.coinbase.com/v2/prices/BTC-USD/spot');
   const ethResponse = await axios.get('https://api.coinbase.com/v2/prices/ETH-USD/spot');
   
@@ -102,9 +110,14 @@ async function getCoinbaseRates(): Promise<CryptoRates> {
     ethereum: parseFloat(ethResponse.data.data.amount),
     source: 'Coinbase'
   };
+} catch (error : any) {
+  console.error('Error fetching Coinbase rates:', error.message);
+  throw error;
+}
 }
 
 async function getBinanceRates(): Promise<CryptoRates> {
+  try {
   const btcResponse = await axios.get('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT');
   const ethResponse = await axios.get('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT');
   
@@ -114,6 +127,10 @@ async function getBinanceRates(): Promise<CryptoRates> {
     ethereum: parseFloat(ethResponse.data.price),
     source: 'Binance'
   };
+} catch (error : any) {
+  console.error('Error fetching Binance rates:', error.message);
+  throw error;
+}
 }
 
 app.listen(port, () => {
