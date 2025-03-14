@@ -1,5 +1,6 @@
 import express from 'express';
 import axios from 'axios';
+import { get } from 'http';
 
 const app = express();
 app.use(express.json());
@@ -11,13 +12,46 @@ interface CryptoRates {
   source: string;
 }
 
+interface CacheData {
+  rates: CryptoRates;
+  timestamp: number;
+}
+
+const cache = {
+  coinGecko: null as CacheData | null,
+  coinbase: null as CacheData | null,
+  kucoin: null as CacheData | null
+};
+
+const cacheDuration = 300000;
+
+async function getCachedRates(
+  exchange: 'coinGecko' | 'coinbase' | 'kucoin',
+  fetchFunction: () => Promise<CryptoRates>
+): Promise<CryptoRates> {
+  const now = Date.now();
+  const cacheEntry = cache[exchange];
+
+  if (cacheEntry && now - cacheEntry.timestamp < cacheDuration) {
+    return cacheEntry.rates;
+  }
+
+  const freshRates = await fetchFunction();
+  cache[exchange] = {
+    rates: freshRates,
+    timestamp: now
+  };
+
+  return freshRates;
+}
+
 // Get BTC rates endpoint
 app.get('/btc', async (req, res) => {
   try {
     const [coinGeckoRates, coinbaseRates, kucoinRates] = await Promise.all([
-      getCoinGeckoRates(),
-      getCoinbaseRates(),
-      getKucoinRates()
+      getCachedRates('coinGecko', getCoinGeckoRates),
+      getCachedRates('coinbase', getCoinbaseRates),
+      getCachedRates('kucoin', getKucoinRates)
     ]);
 
     const formattedRates = [
