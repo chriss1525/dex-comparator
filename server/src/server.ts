@@ -48,10 +48,10 @@ async function getCachedRates(
 // Get BTC rates endpoint
 app.get('/btc', async (req, res) => {
   try {
-    const [coinGeckoRates, coinbaseRates, kucoinRates] = await Promise.all([
+    const [coinGeckoRates, coinbaseRates] = await Promise.all([
       getCachedRates('coinGecko', getCoinGeckoRates),
       getCachedRates('coinbase', getCoinbaseRates),
-      getCachedRates('kucoin', getKucoinRates)
+      // getCachedRates('kucoin', getKucoinRates)
     ]);
 
     const formattedRates = [
@@ -65,11 +65,11 @@ app.get('/btc', async (req, res) => {
         price: coinbaseRates.bitcoin * 100,
         timestamp: Math.floor(Date.now() / 1000)
       },
-      {
-        dex: "KuCoin",
-        price: kucoinRates.bitcoin * 100,
-        timestamp: Math.floor(Date.now() / 1000)
-      }
+      // {
+      //   dex: "KuCoin",
+      //   price: kucoinRates.bitcoin * 100,
+      //   timestamp: Math.floor(Date.now() / 1000)
+      // }
     ];
 
     res.json(formattedRates);
@@ -81,10 +81,10 @@ app.get('/btc', async (req, res) => {
 // Get ETH rates endpoint
 app.get('/eth', async (req, res) => {
   try {
-    const [coinGeckoRates, coinbaseRates, kucoinRates] = await Promise.all([
+    const [coinGeckoRates, coinbaseRates] = await Promise.all([
       getCachedRates('coinGecko', getCoinGeckoRates),
       getCachedRates('coinbase', getCoinbaseRates),
-      getCachedRates('kucoin', getKucoinRates)
+      // getCachedRates('kucoin', getKucoinRates)
     ]);
 
     const formattedRates = [
@@ -98,11 +98,11 @@ app.get('/eth', async (req, res) => {
         price: coinbaseRates.ethereum * 100,
         timestamp: Math.floor(Date.now() / 1000)
       },
-      {
-        dex: "Kucoin",
-        price: kucoinRates.ethereum * 100,
-        timestamp: Math.floor(Date.now() / 1000)
-      }
+      // {
+      //   dex: "Kucoin",
+      //   price: kucoinRates.ethereum * 100,
+      //   timestamp: Math.floor(Date.now() / 1000)
+      // }
     ];
 
     res.json(formattedRates);
