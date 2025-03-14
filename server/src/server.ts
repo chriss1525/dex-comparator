@@ -14,10 +14,10 @@ interface CryptoRates {
 // Get BTC rates endpoint
 app.get('/btc', async (req, res) => {
   try {
-    const [coinGeckoRates, coinbaseRates] = await Promise.all([
+    const [coinGeckoRates, coinbaseRates, kucoinRates] = await Promise.all([
       getCoinGeckoRates(),
       getCoinbaseRates(),
-      // getBinanceRates()
+      getKucoinRates()
     ]);
 
     const formattedRates = [
@@ -31,11 +31,11 @@ app.get('/btc', async (req, res) => {
         price: coinbaseRates.bitcoin * 100,
         timestamp: Math.floor(Date.now() / 1000)
       },
-      // {
-      //   dex: "Binance",
-      //   price: binanceRates.bitcoin * 100,
-      //   timestamp: Math.floor(Date.now() / 1000)
-      // }
+      {
+        dex: "KuCoin",
+        price: kucoinRates.bitcoin * 100,
+        timestamp: Math.floor(Date.now() / 1000)
+      }
     ];
 
     res.json(formattedRates);
@@ -47,10 +47,10 @@ app.get('/btc', async (req, res) => {
 // Get ETH rates endpoint
 app.get('/eth', async (req, res) => {
   try {
-    const [coinGeckoRates, coinbaseRates] = await Promise.all([
+    const [coinGeckoRates, coinbaseRates, kucoinRates] = await Promise.all([
       getCoinGeckoRates(),
       getCoinbaseRates(),
-      // getBinanceRates()
+      getKucoinRates()
     ]);
 
     const formattedRates = [
@@ -64,11 +64,11 @@ app.get('/eth', async (req, res) => {
         price: coinbaseRates.ethereum * 100,
         timestamp: Math.floor(Date.now() / 1000)
       },
-      // {
-      //   dex: "Binance",
-      //   price: binanceRates.ethereum * 100,
-      //   timestamp: Math.floor(Date.now() / 1000)
-      // }
+      {
+        dex: "Kucoin",
+        price: kucoinRates.ethereum * 100,
+        timestamp: Math.floor(Date.now() / 1000)
+      }
     ];
 
     res.json(formattedRates);
@@ -123,27 +123,19 @@ async function getCoinbaseRates(): Promise<CryptoRates> {
 }
 }
 
-async function getBinanceRates(): Promise<CryptoRates> {
-  try {
-    const btcResponse = await axios.get('https://api.binance.com/api/v3/ticker/price', {
-      params: { symbol: 'BTCUSDT' },
-      headers: {
-        'User-Agent': 'Your-App-Name/1.0'
-      }
-    });
-  const ethResponse = await axios.get('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT');
+async function getKucoinRates(): Promise<CryptoRates> {
+  const [btcResponse, ethResponse] = await Promise.all([
+    axios.get('https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=BTC-USDT'),
+    axios.get('https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=ETH-USDT')
+  ]);
   
-  // console.log("binance prices are:", btcResponse.data.price, ethResponse.data.price);
   return {
-    bitcoin: parseFloat(btcResponse.data.price),
-    ethereum: parseFloat(ethResponse.data.price),
-    source: 'Binance'
+    bitcoin: parseFloat(btcResponse.data.data.price),
+    ethereum: parseFloat(ethResponse.data.data.price),
+    source: 'KuCoin'
   };
-} catch (error : any) {
-  console.error('Error fetching Binance rates:', error.message);
-  throw error;
 }
-}
+
 
 app.listen(port, () => {
   console.log(`Kernel server running at http://localhost:${port}`);
